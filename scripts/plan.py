@@ -28,9 +28,12 @@ def main():
     selected = []
     for name, source in json.loads(Path('packages.json').read_text()).items():
         remote = f'https://github.com/{source["repository"]}.git'
-        ref = f'refs/heads/{source["branch"]}'
-        line = subprocess.check_output(['git', 'ls-remote', '--exit-code', remote, ref], text=True)
-        commit = line.split()[0]
+        if 'commit' in source:
+            commit = source['commit']
+        else:
+            ref = f'refs/heads/{source["branch"]}'
+            line = subprocess.check_output(['git', 'ls-remote', '--exit-code', remote, ref], text=True)
+            commit = line.split()[0]
         if not re.fullmatch('[0-9a-f]{40}', commit):
             raise RuntimeError(f'{name}: invalid source commit')
         entry = dict(source, name=name, commit=commit, recipe=recipe_hash(name))

@@ -1,0 +1,32 @@
+# Maintainer: zhuceyezi <32574743+zhuceyezi@users.noreply.github.com>
+pkgname=python-pulsectl
+epoch=1
+pkgver=24.12.0
+pkgrel=${PKGREL_OVERRIDE:-1}
+pkgdesc='Python bindings for libpulse, required by Linux Arctis Manager'
+arch=('any')
+url='https://github.com/mk-fg/python-pulse-control'
+license=('MIT')
+depends=('python' 'libpulse')
+makedepends=('git' 'uv' 'python-installer')
+conflicts=('python-pulse-control')
+options=('!debug')
+_commit=${SOURCE_COMMIT:-df9431e90d8bf1a7f7a242401340969a89af9157}
+source=("application::git+$url.git#commit=$_commit")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$srcdir/application"
+    printf '24.12.0.r%s.g%s' "$(git rev-list --count --first-parent HEAD)" "$(git rev-parse --short=8 HEAD)"
+}
+
+build() {
+    cd "$srcdir/application"
+    uv build --wheel --out-dir dist
+}
+
+package() {
+    cd "$srcdir/application"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+    install -Dm644 COPYING "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

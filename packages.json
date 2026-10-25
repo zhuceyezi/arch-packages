@@ -3,6 +3,10 @@
     "repository": "zhuceyezi/Linux-Arctis-Manager",
     "branch": "main"
   },
+  "python-pulsectl": {
+    "repository": "mk-fg/python-pulse-control",
+    "commit": "df9431e90d8bf1a7f7a242401340969a89af9157"
+  },
   "elyterminal": {
     "repository": "zhuceyezi/ELYTerminal",
     "branch": "linux-window-reuse"

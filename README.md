@@ -7,6 +7,9 @@
 | `linux-arctis-manager` | [Linux-Arctis-Manager](https://github.com/zhuceyezi/Linux-Arctis-Manager) | `main` |
 | `elyterminal` | [ELYTerminal](https://github.com/zhuceyezi/ELYTerminal) | `linux-window-reuse` |
 
+仓库还提供 Arctis Manager 所需的 `python-pulsectl`，固定在原项目的 24.12.0 发布提交。
+该依赖不包含本地功能修改。其 epoch 保持为 1，与 CachyOS 的包兼容。
+
 ## 日常升级
 
 本机完成一次接入后，运行：
@@ -34,7 +37,7 @@ GitHub 的定时任务可能延迟。需要立即构建时，在本仓库的 Act
 ## 发布和签名
 
 构建使用干净的 Arch 容器，makepkg 以普通用户运行，源码固定到检查阶段确定的提交。
-两个构建任务均成功后，独立发布任务才取得专用的 OpenPGP 签名密钥。
+所有构建任务均成功后，独立发布任务才取得专用的 OpenPGP 签名密钥。
 软件包和仓库数据库均要求受信任的签名，客户端不会关闭签名检查。
 GitHub Pages 一次部署完整的数据库、签名和软件包，避免更新时客户端读到不一致的文件。
 
