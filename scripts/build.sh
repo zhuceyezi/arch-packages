@@ -25,6 +25,7 @@ path.write_text(re.sub(r'^pkgrel=.*$', 'pkgrel=' + release, path.read_text(), fl
 PY
 makepkg --noconfirm --noextract --force
 mapfile -t packages < <(makepkg --packagelist)
+rm -f "$root/dist/$name/"*.pkg.tar.zst
 for package in "${packages[@]}"; do
     [[ -f $package ]]
     filename=${package##*/}
