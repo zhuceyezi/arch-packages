@@ -88,6 +88,8 @@ jobs:
           name: package-${{ matrix.name }}
           path: dist/${{ matrix.name }}/
           retention-days: 7
+          compression-level: 0
+          if-no-files-found: error
 
   publish:
     needs: [plan, build]

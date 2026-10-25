@@ -11,11 +11,25 @@ cd "$build"
 export SOURCE_COMMIT=$commit
 export PKGREL_OVERRIDE=${GITHUB_RUN_NUMBER:-1}
 export PACKAGER='Aleafy <32574743+zhuceyezi@users.noreply.github.com>'
-makepkg --noconfirm --cleanbuild --force
+makepkg --noconfirm --cleanbuild --nobuild
+python - "$PKGREL_OVERRIDE" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+release = sys.argv[1]
+if not release.isdecimal() or int(release) < 1:
+    raise SystemExit('build: invalid package release number')
+path = Path('PKGBUILD')
+path.write_text(re.sub(r'^pkgrel=.*$', 'pkgrel=' + release, path.read_text(), flags=re.MULTILINE))
+PY
+makepkg --noconfirm --noextract --force
 mapfile -t packages < <(makepkg --packagelist)
 for package in "${packages[@]}"; do
     [[ -f $package ]]
-    cp "$package" "$root/dist/$name/"
+    filename=${package##*/}
+    filename=${filename//:/_}
+    cp "$package" "$root/dist/$name/$filename"
 done
 python - "$name" "$commit" "$root" <<'PY'
 import json
