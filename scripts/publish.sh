@@ -22,8 +22,12 @@ done
 for package in site/x86_64/*.pkg.tar.zst; do
     [[ ! -e $package ]] || gpg --batch --verify "$package.sig" "$package"
 done
-for package in dist/*/*.pkg.tar.zst; do
-    [[ -e $package ]]
+mapfile -d '' -t incoming < <(find dist -type f -name '*.pkg.tar.zst' -print0)
+if (( ${#incoming[@]} == 0 )); then
+    echo 'publish: no incoming package artifacts were found' >&2
+    exit 1
+fi
+for package in "${incoming[@]}"; do
     gpg --batch --yes --local-user "$fingerprint" --detach-sign "$package"
     cp "$package" "$package.sig" site/x86_64/
 done

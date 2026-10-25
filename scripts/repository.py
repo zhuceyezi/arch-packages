@@ -17,7 +17,7 @@ root = Path('site/x86_64')
 old_path = Path('previous/manifest.json')
 manifest = json.loads(old_path.read_text()) if old_path.exists() else {}
 incoming = {}
-for path in sorted(Path('dist').glob('*/build.json')):
+for path in sorted(Path('dist').rglob('build.json')):
     entry = json.loads(path.read_text())
     package, = path.parent.glob('*.pkg.tar.zst')
     name, version = info(package)
