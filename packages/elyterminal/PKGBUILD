@@ -11,7 +11,7 @@ depends=('glibc' 'gcc-libs' 'libxkbcommon' 'libxkbcommon-x11' 'libxcb'
 makedepends=('git' 'rust' 'clang' 'cmake' 'pkgconf' 'python' 'libx11' 'libxrandr'
              'libxinerama' 'libxcursor' 'libxi' 'libxrender' 'libxext' 'libxfixes'
              'zlib' 'openssl')
-options=('!debug')
+options=('!debug' '!lto')
 _ref=${SOURCE_COMMIT:+commit=$SOURCE_COMMIT}
 source=("application::git+$url.git#${_ref:-branch=linux-window-reuse}")
 sha256sums=('SKIP')
