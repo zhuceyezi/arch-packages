@@ -1,0 +1,10 @@
+{
+  "linux-arctis-manager": {
+    "repository": "zhuceyezi/Linux-Arctis-Manager",
+    "branch": "main"
+  },
+  "elyterminal": {
+    "repository": "zhuceyezi/ELYTerminal",
+    "branch": "linux-window-reuse"
+  }
+}

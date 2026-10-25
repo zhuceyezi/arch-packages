@@ -1,0 +1,53 @@
+# Maintainer: zhuceyezi <32574743+zhuceyezi@users.noreply.github.com>
+pkgname=linux-arctis-manager
+pkgver=2.4.1
+pkgrel=${PKGREL_OVERRIDE:-1}
+pkgdesc='SteelSeries Arctis headset manager, with Aleafy ChatMix fixes'
+arch=('x86_64')
+url='https://github.com/zhuceyezi/Linux-Arctis-Manager'
+license=('GPL-3.0-only')
+depends=('python>=3.10' 'python-dbus-next' 'python-pulsectl' 'pyside6'
+         'python-pyudev' 'python-pyusb' 'python-ruamel-yaml')
+makedepends=('git' 'uv' 'python-installer')
+options=('!debug')
+_ref=${SOURCE_COMMIT:+commit=$SOURCE_COMMIT}
+source=("application::git+$url.git#${_ref:-branch=main}"
+        'arctis-manager.service')
+sha256sums=('SKIP' '025ae7546d8ffa8f4e2959208dca1254030e1c106a5d955d74b7b49b5cf98767')
+
+pkgver() {
+    cd "$srcdir/application"
+    local version
+    version=$(python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+    printf '%s.r%s.g%s' "$version" "$(git rev-list --count --first-parent HEAD)" "$(git rev-parse --short=8 HEAD)"
+}
+
+build() {
+    cd "$srcdir/application"
+    uv build --wheel --out-dir dist
+}
+
+package() {
+    cd "$srcdir/application"
+    python -m installer --destdir="$pkgdir" dist/*.whl
+    install -Dm644 "$srcdir/arctis-manager.service" "$pkgdir/usr/lib/systemd/user/arctis-manager.service"
+    install -Dm644 src/linux_arctis_manager/desktop/ArctisManager.desktop "$pkgdir/usr/share/applications/ArctisManager.desktop"
+    install -Dm644 src/linux_arctis_manager/desktop/ArctisManagerSystray.desktop "$pkgdir/usr/share/applications/ArctisManagerSystray.desktop"
+    install -Dm644 src/linux_arctis_manager/gui/images/steelseries_logo.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/arctis-manager.svg"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -dm755 "$pkgdir/usr/lib/udev/rules.d"
+    python - "$pkgdir/usr/lib/udev/rules.d/91-steelseries-arctis.rules" <<'PY'
+from pathlib import Path
+import sys
+from ruamel.yaml import YAML
+
+rules = ['ACTION=="remove", GOTO="arctis_end"', '']
+for path in sorted(Path('src/linux_arctis_manager/devices').glob('*.yaml')):
+    device = YAML(typ='safe').load(path.read_text())['device']
+    vendor = f'{device["vendor_id"]:04x}'
+    products = '|'.join(f'{product:04x}' for product in device['product_ids'])
+    rules.extend([f'# {device["name"]}', f'SUBSYSTEM=="usb", ENV{{DEVTYPE}}=="usb_device", ATTRS{{idVendor}}=="{vendor}", ATTRS{{idProduct}}=="{products}", MODE="0666", TAG+="uaccess"', ''])
+rules.append('LABEL="arctis_end"')
+Path(sys.argv[1]).write_text('\n'.join(rules) + '\n')
+PY
+}

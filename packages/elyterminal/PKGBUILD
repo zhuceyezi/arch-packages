@@ -1,0 +1,51 @@
+# Maintainer: zhuceyezi <32574743+zhuceyezi@users.noreply.github.com>
+pkgname=elyterminal
+pkgver=0.1.9
+pkgrel=${PKGREL_OVERRIDE:-1}
+pkgdesc='GPUI terminal with Aleafy Linux window, drag and theme customizations'
+arch=('x86_64')
+url='https://github.com/zhuceyezi/ELYTerminal'
+license=('MIT')
+depends=('glibc' 'gcc-libs' 'libxkbcommon' 'libxkbcommon-x11' 'libxcb'
+         'wayland' 'vulkan-icd-loader' 'fontconfig' 'freetype2' 'git' 'curl' 'xdg-utils')
+makedepends=('git' 'rust' 'clang' 'cmake' 'pkgconf' 'python' 'libx11' 'libxrandr'
+             'libxinerama' 'libxcursor' 'libxi' 'libxrender' 'libxext' 'libxfixes'
+             'zlib' 'openssl')
+options=('!debug')
+_ref=${SOURCE_COMMIT:+commit=$SOURCE_COMMIT}
+source=("application::git+$url.git#${_ref:-branch=linux-window-reuse}")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$srcdir/application"
+    local version
+    version=$(python -c 'import tomllib; print(tomllib.load(open("Cargo.toml", "rb"))["package"]["version"])')
+    printf '%s.r%s.g%s' "$version" "$(git rev-list --count --first-parent HEAD)" "$(git rev-parse --short=8 HEAD)"
+}
+
+prepare() {
+    cd "$srcdir/application"
+    cargo fetch --locked --target x86_64-unknown-linux-gnu
+}
+
+build() {
+    cd "$srcdir/application"
+    export CARGO_TARGET_DIR=${ARCH_CARGO_TARGET_DIR:-"$srcdir/target"}
+    export RUSTFLAGS='-C target-cpu=x86-64'
+    cargo build --frozen --release --bin elyterminal
+}
+
+package() {
+    cd "$srcdir/application"
+    local target=${ARCH_CARGO_TARGET_DIR:-"$srcdir/target"}
+    local appid=com.zacharyzhang.elyterminal
+    install -Dm755 "$target/release/elyterminal" "$pkgdir/usr/bin/elyterminal"
+    install -Dm644 "packaging/linux/$appid.desktop" "$pkgdir/usr/share/applications/$appid.desktop"
+    install -Dm644 assets/icons/elyterminal.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/$appid.svg"
+    install -Dm644 packaging/linux/elyterminal.1 "$pkgdir/usr/share/man/man1/elyterminal.1"
+    install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    install -m644 LICENSE-GHOSTTY assets/fonts/*LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/"
+    install -Dm644 assets/themes/LICENSE "$pkgdir/usr/share/licenses/$pkgname/themes-LICENSE"
+    install -Dm644 packaging/linux/FreeType-LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/FreeType-LICENSE"
+    install -Dm644 vendor/xim-ctext/tables/LICENSE "$pkgdir/usr/share/licenses/$pkgname/libX11-lcUniConv"
+}

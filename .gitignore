@@ -1,0 +1,8 @@
+/work/
+/dist/
+/plan.json
+/previous/
+/site/
+__pycache__/
+*.pkg.tar.*
+!keyring/*.asc

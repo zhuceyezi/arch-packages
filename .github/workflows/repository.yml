@@ -1,0 +1,127 @@
+name: Build and publish Arch repository
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+    inputs:
+      rebuild:
+        description: Rebuild even when source commits are unchanged
+        type: boolean
+        default: false
+
+concurrency:
+  group: arch-repository
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+      changed: ${{ steps.plan.outputs.changed }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - name: Download last published state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/previous.sh previous manifest-only
+      - name: Select changed packages and weekly rebuilds
+        id: plan
+        env:
+          FORCE_REBUILD: ${{ inputs.rebuild }}
+        run: |
+          args=()
+          if [[ $FORCE_REBUILD == true ]]; then args+=(--force); fi
+          python scripts/plan.py "${args[@]}"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: steps.plan.outputs.changed == 'true'
+        with:
+          name: build-plan
+          path: plan.json
+          retention-days: 3
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    container: archlinux:base-devel
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Prepare Arch build environment
+        run: |
+          pacman -Syu --noconfirm --needed git rust clang cmake pkgconf python uv \
+            python-installer python-dbus-next python-pulsectl pyside6 python-pyudev \
+            python-pyusb python-ruamel-yaml libxkbcommon libxkbcommon-x11 libxcb \
+            wayland vulkan-icd-loader fontconfig freetype2 curl xdg-utils libx11 \
+            libxrandr libxinerama libxcursor libxi libxrender libxext libxfixes openssl
+          useradd -m builder
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: build-plan
+      - name: Build as unprivileged user
+        env:
+          PACKAGE_NAME: ${{ matrix.name }}
+          SOURCE_COMMIT: ${{ matrix.commit }}
+        run: |
+          chown -R builder:builder "$GITHUB_WORKSPACE"
+          runuser -u builder -- env GITHUB_RUN_NUMBER="$GITHUB_RUN_NUMBER" \
+            CARGO_BUILD_JOBS=4 bash scripts/build.sh "$PACKAGE_NAME" "$SOURCE_COMMIT"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        with:
+          name: package-${{ matrix.name }}
+          path: dist/${{ matrix.name }}/
+          retention-days: 7
+
+  publish:
+    needs: [plan, build]
+    if: needs.plan.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    container: archlinux:base-devel
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Prepare repository tools
+        run: pacman -Syu --noconfirm --needed git github-cli gnupg python
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          pattern: package-*
+          path: dist
+      - name: Download last published repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/previous.sh
+      - name: Sign and publish repository state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO_SIGNING_KEY: ${{ secrets.REPO_SIGNING_KEY }}
+          REPO_SIGNING_FINGERPRINT: ${{ vars.REPO_SIGNING_FINGERPRINT }}
+        run: bash scripts/publish.sh
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b
+        with:
+          path: site
+      - name: Deploy repository atomically
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
