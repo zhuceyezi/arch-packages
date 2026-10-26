@@ -3,7 +3,7 @@ run-name: ${{ inputs.candidate_package && inputs.candidate_package != 'none' && 
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'candidate-validation/**']
   schedule:
     - cron: '17,47 * * * *'
   workflow_dispatch:
@@ -40,6 +40,12 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           persist-credentials: false
+      - name: Resolve cloud candidate request
+        id: candidate
+        env:
+          INPUT_PACKAGE: ${{ inputs.candidate_package }}
+          INPUT_COMMIT: ${{ inputs.candidate_commit }}
+        run: python scripts/candidate-request.py
       - name: Download last published state
         env:
           GH_TOKEN: ${{ github.token }}
@@ -48,8 +54,8 @@ jobs:
         id: plan
         env:
           FORCE_REBUILD: ${{ inputs.rebuild }}
-          CANDIDATE_PACKAGE: ${{ inputs.candidate_package }}
-          CANDIDATE_COMMIT: ${{ inputs.candidate_commit }}
+          CANDIDATE_PACKAGE: ${{ steps.candidate.outputs.package }}
+          CANDIDATE_COMMIT: ${{ steps.candidate.outputs.commit }}
         run: |
           args=()
           if [[ $FORCE_REBUILD == true ]]; then args+=(--force); fi
@@ -109,7 +115,7 @@ jobs:
 
   publish:
     needs: [plan, build]
-    if: needs.plan.outputs.changed == 'true' && needs.plan.outputs.publish == 'true'
+    if: github.ref == 'refs/heads/main' && needs.plan.outputs.changed == 'true' && needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container: archlinux:base-devel
