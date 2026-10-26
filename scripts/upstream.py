@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import time
+import urllib.request
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -17,8 +18,22 @@ def git(path, *args, check=True):
                           capture_output=True, text=True)
 
 
-def gh(*args):
-    return subprocess.check_output(['/home/aleafy/.local/bin/gh', *args], text=True)
+def releases(repository):
+    # Public release metadata only; never load local gh/keychain credentials.
+    rows = []
+    page = 1
+    while True:
+        request = urllib.request.Request(
+            f'https://api.github.com/repos/{repository}/releases?per_page=100&page={page}',
+            headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'arch-upstream-check'})
+        with urllib.request.urlopen(request, timeout=30) as response:
+            batch = json.load(response)
+        if not isinstance(batch, list):
+            raise RuntimeError('unexpected release API response')
+        rows.extend(batch)
+        if len(batch) < 100:
+            return rows
+        page += 1
 
 
 def version(tag):
@@ -40,9 +55,13 @@ def guard(name, path, ref):
     return failures
 
 
-def check_one(name):
+def check_one(name, workspace_root=None):
     policy = POLICY[name]
-    path = Path(policy['path'])
+    path = workspace_root / name if workspace_root else Path(policy['path'])
+    if workspace_root and not path.exists():
+        workspace_root.mkdir(parents=True, exist_ok=True)
+        subprocess.run(['git', 'clone', '--branch', policy['branch'],
+                        f'https://github.com/{policy["fork"]}.git', str(path)], check=True)
     remote = git(path, 'remote', 'get-url', 'origin').stdout.strip()
     if remote != f'https://github.com/{policy["fork"]}.git':
         raise RuntimeError(name + ': origin does not match the authorized fork')
@@ -57,14 +76,9 @@ def check_one(name):
     rows = []
     for attempt in range(3):
         try:
-            raw = gh('api', '--paginate', f'repos/{policy["upstream"]}/releases?per_page=100')
-            decoder = json.JSONDecoder()
-            while raw.strip():
-                page, used = decoder.raw_decode(raw.lstrip())
-                rows.extend(page)
-                raw = raw.lstrip()[used:]
+            rows = releases(policy['upstream'])
             break
-        except subprocess.CalledProcessError:
+        except (OSError, ValueError):
             if attempt == 2:
                 raise
             time.sleep(2)
@@ -92,6 +106,8 @@ def main():
     commands = parser.add_subparsers(dest='command', required=True)
     check = commands.add_parser('check')
     check.add_argument('package', choices=[*POLICY, 'all'], default='all', nargs='?')
+    check.add_argument('--workspace-root', type=Path,
+                       help='Cloud checkout root; clone missing public forks without credentials')
     gate = commands.add_parser('guard')
     gate.add_argument('package', choices=POLICY)
     gate.add_argument('path', type=Path)
@@ -105,7 +121,7 @@ def main():
     results = []
     for name in POLICY if args.package == 'all' else [args.package]:
         try:
-            results.append(check_one(name))
+            results.append(check_one(name, args.workspace_root))
         except Exception as error:
             results.append({'name': name, 'status': 'error', 'detail': str(error)})
     print(json.dumps(results, ensure_ascii=False, indent=2))
