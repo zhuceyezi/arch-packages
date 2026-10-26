@@ -1,0 +1,66 @@
+{
+  "linux-arctis-manager": {
+    "path": "/home/aleafy/code/linux-arctis-manager",
+    "fork": "zhuceyezi/Linux-Arctis-Manager",
+    "branch": "main",
+    "upstream": "elegos/Linux-Arctis-Manager",
+    "baseline_version": "2.4.1",
+    "custom_baseline": "f8a06e513fa1c033ad913aa3d8242912d5fd1d64",
+    "features": [
+      {
+        "name": "快速 ChatMix 旋钮批量读取、合并最终状态与失败重试",
+        "files": {
+          "src/linux_arctis_manager/core.py": ["def _read_report_batch", "0.008", "pending_status.update", "_next_status_request", "Could not apply ChatMix; will retry"]
+        }
+      },
+      {
+        "name": "保持 Game/Chat 内部频道与手动选择输出",
+        "files": {
+          "src/linux_arctis_manager/constants.py": ["Arctis_Media", "Arctis_Chat"]
+        }
+      },
+      {
+        "name": "沿用软件包服务与有效的桌面入口",
+        "files": {
+          "src/linux_arctis_manager/systemd.py": ["vendor_unit", "if not vendor_unit.is_file()"],
+          "src/linux_arctis_manager/desktop/ArctisManager.desktop": ["Exec=lam-gui"],
+          "src/linux_arctis_manager/desktop/ArctisManagerSystray.desktop": ["Exec=lam-gui --systray"]
+        }
+      }
+    ]
+  },
+  "elyterminal": {
+    "path": "/home/aleafy/code/ELYTerminal",
+    "fork": "zhuceyezi/ELYTerminal",
+    "branch": "linux-window-reuse",
+    "upstream": "ELY-Open-Source/ELYTerminal",
+    "baseline_version": "0.1.9",
+    "custom_baseline": "98dc17b782f8a45aa4a45427c775468d112af849",
+    "features": [
+      {
+        "name": "Linux 窗口复用、独立窗口、工作目录和命令参数",
+        "files": {
+          "src/startup.rs": ["ipc::claim", "--new-window", "--working-directory", "--workdir"],
+          "src/startup/ipc.rs": ["Instance"],
+          "src/startup/request.rs": ["pub struct Request", "shell::Start::In"]
+        }
+      },
+      {
+        "name": "跨窗口转移现有终端与原生拖拽",
+        "files": {
+          "src/workspace/transfer.rs": ["mod drag", "mod native"],
+          "src/workspace/transfer/drag.rs": ["struct Held", "struct Drag", "impl Global for Drag"],
+          "src/workspace/transfer/native.rs": ["mod buttons", "mod events", "mod icon"]
+        }
+      },
+      {
+        "name": "End-4、Flamingo 与 KDE 壁纸 Material You 主题",
+        "files": {
+          "src/themes/mod.rs": ["end4-kde-light", "end4-kde-dark", "catppuccin-mocha-flamingo", "catppuccin-latte-flamingo"],
+          "src/themes/material.rs": ["material-you-light", "material-you-dark", "pub struct MaterialYou", "wallpaper_file"],
+          "src/term/pty.rs": ["TERM_PROGRAM", "TERM_PROGRAM_VERSION", "ELYTerminal"]
+        }
+      }
+    ]
+  }
+}

@@ -22,13 +22,19 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--previous', default='previous/manifest.json')
     parser.add_argument('--force', action='store_true')
+    parser.add_argument('--candidate-package')
+    parser.add_argument('--candidate-commit')
     args = parser.parse_args()
     previous_path = Path(args.previous)
     previous = json.loads(previous_path.read_text()) if previous_path.exists() else {}
     selected = []
     for name, source in json.loads(Path('packages.json').read_text()).items():
+        if args.candidate_package and name != args.candidate_package:
+            continue
         remote = f'https://github.com/{source["repository"]}.git'
-        if 'commit' in source:
+        if args.candidate_package:
+            commit = args.candidate_commit or ''
+        elif 'commit' in source:
             commit = source['commit']
         else:
             ref = f'refs/heads/{source["branch"]}'
@@ -40,8 +46,10 @@ def main():
         old = previous.get(name, {})
         changed = any(old.get(key) != entry[key] for key in ('commit', 'recipe'))
         expired = time.time() - old.get('built_at', 0) >= 7 * 24 * 60 * 60
-        if args.force or changed or expired:
+        if args.candidate_package or args.force or changed or expired:
             selected.append(entry)
+    if args.candidate_package and not selected:
+        raise RuntimeError('plan: unknown candidate package')
     Path('plan.json').write_text(json.dumps(selected, indent=2) + '\n')
     result = {'include': selected}
     print(json.dumps(result))
@@ -49,6 +57,7 @@ def main():
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
             output.write('matrix=' + json.dumps(result, separators=(',', ':')) + '\n')
             output.write('changed=' + str(bool(selected)).lower() + '\n')
+            output.write('publish=' + str(not bool(args.candidate_package)).lower() + '\n')
 
 
 if __name__ == '__main__':

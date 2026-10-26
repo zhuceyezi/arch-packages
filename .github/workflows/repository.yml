@@ -1,4 +1,5 @@
 name: Build and publish Arch repository
+run-name: ${{ inputs.candidate_package && inputs.candidate_package != 'none' && format('Validate {0} {1}', inputs.candidate_package, inputs.candidate_commit) || 'Build and publish Arch repository' }}
 
 on:
   push:
@@ -11,6 +12,15 @@ on:
         description: Rebuild even when source commits are unchanged
         type: boolean
         default: false
+      candidate_package:
+        description: Build a fork candidate without publishing packages
+        type: choice
+        options: [none, linux-arctis-manager, elyterminal]
+        default: none
+      candidate_commit:
+        description: Full commit SHA for the candidate build
+        type: string
+        default: ''
 
 concurrency:
   group: arch-repository
@@ -25,6 +35,7 @@ jobs:
     outputs:
       matrix: ${{ steps.plan.outputs.matrix }}
       changed: ${{ steps.plan.outputs.changed }}
+      publish: ${{ steps.plan.outputs.publish }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
@@ -37,9 +48,14 @@ jobs:
         id: plan
         env:
           FORCE_REBUILD: ${{ inputs.rebuild }}
+          CANDIDATE_PACKAGE: ${{ inputs.candidate_package }}
+          CANDIDATE_COMMIT: ${{ inputs.candidate_commit }}
         run: |
           args=()
           if [[ $FORCE_REBUILD == true ]]; then args+=(--force); fi
+          if [[ -n $CANDIDATE_PACKAGE && $CANDIDATE_PACKAGE != none ]]; then
+            args+=(--candidate-package "$CANDIDATE_PACKAGE" --candidate-commit "$CANDIDATE_COMMIT")
+          fi
           python scripts/plan.py "${args[@]}"
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
         if: steps.plan.outputs.changed == 'true'
@@ -93,7 +109,7 @@ jobs:
 
   publish:
     needs: [plan, build]
-    if: needs.plan.outputs.changed == 'true'
+    if: needs.plan.outputs.changed == 'true' && needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     container: archlinux:base-devel

@@ -12,6 +12,9 @@ export SOURCE_COMMIT=$commit
 export PKGREL_OVERRIDE=${GITHUB_RUN_NUMBER:-1}
 export PACKAGER='Aleafy <32574743+zhuceyezi@users.noreply.github.com>'
 makepkg --noconfirm --cleanbuild --nobuild
+if [[ $name == linux-arctis-manager || $name == elyterminal ]]; then
+    python "$root/scripts/upstream.py" guard "$name" "$build/src/application"
+fi
 python - "$PKGREL_OVERRIDE" <<'PY'
 from pathlib import Path
 import re
