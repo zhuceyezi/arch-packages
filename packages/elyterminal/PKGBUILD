@@ -35,6 +35,15 @@ build() {
     cargo build --frozen --release --bin elyterminal
 }
 
+check() {
+    cd "$srcdir/application"
+    export CARGO_TARGET_DIR=${ARCH_CARGO_TARGET_DIR:-"$srcdir/target"}
+    export RUSTFLAGS='-C target-cpu=x86-64'
+    for filter in app::tests startup:: themes:: workspace::; do
+        cargo test --frozen --release --lib "$filter"
+    done
+}
+
 package() {
     cd "$srcdir/application"
     local target=${ARCH_CARGO_TARGET_DIR:-"$srcdir/target"}
